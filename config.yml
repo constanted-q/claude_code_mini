@@ -1,8 +1,9 @@
 # Enhanced Claude Code Configuration
 # Following Aider's config pattern
 
-# Model settings
-model: gpt-4
+# Model settings - Kimi K2 via Moonshot API
+model: kimi-k2-0711-preview
+base_url: https://api.moonshot.cn/v1
 max_tokens: 4096
 temperature: 0.2
 

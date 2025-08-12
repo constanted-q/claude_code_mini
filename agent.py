@@ -6,13 +6,27 @@ import os
 import time
 from typing import Dict, Any, List
 import yaml
+from models import KimiModelClient
 
 
 class Agent:
     def __init__(self, config_path: str = "config.yml"):
         """Initialize the Agent with configuration."""
         self.config = self._load_config(config_path)
-        self.api_key = os.getenv("KIMI_API_KEY", "mock-api-key")
+        self.api_key = os.getenv("MOONSHOT_API_KEY", "mock-api-key")
+        
+        # Initialize model client if API key is available
+        if self.api_key and self.api_key != "mock-api-key":
+            try:
+                self.model_client = KimiModelClient(self.config)
+                self.use_real_model = True
+            except Exception as e:
+                print(f"[Agent] Failed to initialize model client: {e}")
+                self.model_client = None
+                self.use_real_model = False
+        else:
+            self.model_client = None
+            self.use_real_model = False
         
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Load configuration from YAML file."""
@@ -32,7 +46,8 @@ class Agent:
     def _default_config(self) -> Dict[str, Any]:
         """Return default configuration if file loading fails."""
         return {
-            "model": "gpt-4",
+            "model": "kimi-k2-0711-preview",
+            "base_url": "https://api.moonshot.cn/v1",
             "max_tokens": 4096,
             "temperature": 0.2,
             "verbose": False
@@ -40,8 +55,7 @@ class Agent:
     
     def generate_response(self, message: str, context: List[Dict[str, str]] = None) -> str:
         """
-        Generate a response to the user message.
-        Currently mocked - will integrate real LLM API later.
+        Generate a response to the user message using real LLM or fallback to mock.
         
         Args:
             message: User input message
@@ -50,13 +64,21 @@ class Agent:
         Returns:
             Generated response string
         """
+
         if self.config.get("verbose", False):
             print(f"[Agent] Processing message: {message[:50]}...")
         
-        # Mock response generation with slight delay to simulate API call
-        time.sleep(0.1)
+        # Use real model if available
+        if self.use_real_model and self.model_client:
+            try:
+                return self.model_client.generate_response(message, context)
+            except Exception as e:
+                print(f"[Agent] Model API failed, falling back to mock: {e}")
+                # Fall through to mock response
         
-        # Simple mock responses based on keywords
+        # Fallback mock responses (when no API key or API fails)
+        time.sleep(0.1)  # Simulate API delay
+        
         message_lower = message.lower()
         
         if "hello" in message_lower or "hi" in message_lower:
@@ -81,9 +103,13 @@ class Agent:
     
     def get_model_info(self) -> Dict[str, Any]:
         """Return information about the current model configuration."""
-        return {
-            "model": self.config.get("model", "unknown"),
-            "max_tokens": self.config.get("max_tokens", 0),
-            "temperature": self.config.get("temperature", 0.0),
-            "has_api_key": bool(self.api_key and self.api_key != "mock-api-key")
-        }
+        if self.use_real_model and self.model_client:
+            return self.model_client.get_model_info()
+        else:
+            return {
+                "model": self.config.get("model", "unknown"),
+                "max_tokens": self.config.get("max_tokens", 0),
+                "temperature": self.config.get("temperature", 0.0),
+                "has_api_key": bool(self.api_key and self.api_key != "mock-api-key"),
+                "using_mock": True
+            }

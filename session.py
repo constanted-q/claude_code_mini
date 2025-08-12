@@ -42,8 +42,9 @@ class Session:
                     self._print_message("Please enter a message or type /exit to quit.", "system")
                     continue
                 
-                # Generate response using agent
-                response = self.agent.generate_response(processed_input, self.context_history)
+                # Generate response using agent with filtered context
+                filtered_context = self.get_filtered_context(["conversation"])
+                response = self.agent.generate_response(processed_input, filtered_context)
                 
                 # Postprocess response
                 processed_response = self._postprocess_response(response)
@@ -118,27 +119,62 @@ class Session:
     
     def _update_context(self, user_input: str, agent_response: str):
         """
-        Update the conversation context history.
+        Update the conversation context history using unified context format.
         
         Args:
             user_input: User's message
             agent_response: Agent's response
         """
-        context_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "user": user_input,
-            "assistant": agent_response,
-            "message_id": len(self.context_history) + 1
+        timestamp = datetime.now().isoformat()
+        message_id = len(self.context_history) + 1
+        
+        # Add user message in unified format
+        user_context = {
+            "type": "conversation",
+            "role": "user",
+            "content": user_input,
+            "metadata": {
+                "timestamp": timestamp,
+                "message_id": f"{message_id}_user"
+            }
         }
         
-        self.context_history.append(context_entry)
+        # Add assistant message in unified format
+        assistant_context = {
+            "type": "conversation", 
+            "role": "assistant",
+            "content": agent_response,
+            "metadata": {
+                "timestamp": timestamp,
+                "message_id": f"{message_id}_assistant"
+            }
+        }
         
-        # Keep only last 10 exchanges to prevent context overflow
-        if len(self.context_history) > 10:
-            self.context_history.pop(0)
+        # Add both messages to context history
+        self.context_history.extend([user_context, assistant_context])
+        
+        # Keep only last 20 entries (10 exchanges) to prevent context overflow
+        if len(self.context_history) > 20:
+            # Remove oldest entries but keep pairs together
+            self.context_history = self.context_history[-20:]
         
         if self.verbose:
             print(f"[Session] Context updated. History length: {len(self.context_history)}")
+    
+    def get_filtered_context(self, context_types: List[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get context filtered by type(s) for future extensibility.
+        
+        Args:
+            context_types: List of context types to include (default: ["conversation"])
+            
+        Returns:
+            Filtered context history
+        """
+        if context_types is None:
+            context_types = ["conversation"]
+        
+        return [ctx for ctx in self.context_history if ctx.get("type") in context_types]
     
     def _print_welcome(self):
         """Print welcome message."""
