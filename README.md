@@ -11,6 +11,13 @@ A minimalist Python implementation of Claude Code's core functionality, strategi
 - Graceful fallback to mock responses when API unavailable
 - Comprehensive error handling and verbose logging
 
+**Integrated Tool System:**
+- Tool registry with automatic discovery
+- OpenAI function calling format support
+- ReadTool for file reading with line-based navigation
+- Tool execution in conversation flow with proper ordering
+- Commands: `/tools` (list tools), `/toggle-tools` (enable/disable)
+
 **Advanced Context Management:**
 - Unified context format supporting future extensions
 - Conversation history preservation across chat sessions
@@ -27,6 +34,8 @@ Session (session.py) - I/O, preprocessing, context management
 Agent (agent.py) - Response generation, model selection
     ↓
 Models (models.py) - LLM API integration (Kimi K2)
+    ↓
+Tools (tools/) - Tool registry and execution
 ```
 
 ### Key Components
@@ -34,6 +43,7 @@ Models (models.py) - LLM API integration (Kimi K2)
 - **Session**: Handles user I/O, input preprocessing, response postprocessing, and unified context management
 - **Agent**: Orchestrates response generation, manages model clients, and handles API fallbacks
 - **Models**: OpenAI SDK-based integration with Kimi K2 model via Moonshot API
+- **Tools**: Registry system with auto-discovery, base Tool class, and ReadTool implementation
 - **Unified Context**: Extensible format supporting conversation, repository, and tool contexts
 
 ## 🚀 Quick Start
@@ -80,21 +90,36 @@ python claude_code_mini.py --config my_config.yml
 ```
 🤖 Welcome to Claude Code Mini!
 Type your messages below. Use '/exit' to quit.
+Type '/help' for available commands and '/tools' to list tools.
+Tools available: read_file
 
 🟢 You: Hello, my name is Alice
 🤖 Assistant: Hello Alice! Nice to meet you. How can I help you today?
 
-🟢 You: What is Python?
-🤖 Assistant: Python is a high-level, general-purpose programming language...
+🟢 You: Can you read the config.yml file?
+🤖 Assistant: I'll read the config.yml file for you.
 
-🟢 You: Do you remember my name?
-🤖 Assistant: Yes, Alice! I remember you introduced yourself at the beginning of our conversation.
+🔧 Tool 'read_file' executed:
+1	# Enhanced Claude Code Configuration
+2	# Following Aider's config pattern
+3	
+4	# Model settings - Kimi K2 via Moonshot API
+5	model: kimi-k2-0711-preview
+...
+
+🤖 Assistant: The config.yml file contains configuration settings for the Claude Code Mini application, including model settings for Kimi K2 and various agent parameters.
+
+🟢 You: /tools
+💬 System: Available Tools:
+
+• read_file: Read text files with encoding detection
+  Instructions: Use this tool to read and analyze file contents
 
 🟢 You: /exit
 👋 Goodbye! Session Summary:
    • Duration: 45 seconds
    • Messages exchanged: 3
-   • Context entries: 6
+   • Context entries: 8
 ```
 
 ## 🧪 Testing
@@ -117,7 +142,7 @@ This weekend project implements Claude Code's essential features:
 
 1. ✅ **CLI Interface** - Command-line interaction with comprehensive options
 2. 🚧 **Repository Context Gathering** - Smart codebase understanding 
-3. 🚧 **Agent Loop with Tool Execution** - Conversational AI with action capabilities
+3. ✅ **Agent Loop with Tool Execution** - Conversational AI with action capabilities
 4. 🚧 **Sub-Agents** - Process-isolated parallel task execution
 5. 🚧 **File Patching** - Unified diff-based code modifications
 
@@ -140,11 +165,13 @@ This weekend project implements Claude Code's essential features:
 - [ ] Code structure understanding
 - [ ] Relevance-based context filtering
 
-### Phase 3: Tool Execution 🚧 PLANNED
-- [ ] Tool registry and management
-- [ ] Code execution capabilities
-- [ ] File manipulation tools
-- [ ] Git integration
+### Phase 3: Tool Execution ✅ COMPLETE
+- [x] Tool registry and management with auto-discovery
+- [x] Base Tool class with metadata and execution
+- [x] ReadTool for file reading with line-based navigation
+- [x] OpenAI function calling format support
+- [x] Tool execution in conversation flow
+- [ ] Git integration (future enhancement)
 
 ### Phase 4: Advanced Features 🚧 FUTURE
 - [ ] Sub-agent architecture

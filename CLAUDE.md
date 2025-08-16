@@ -21,6 +21,14 @@ This is a minimalist Python implementation of Claude Code that demonstrates core
 - **Context Management**: Unified context format supporting future extensions
 - **Testing**: Comprehensive test suite with 15 core tests
 
+**Phase 3: Tool Execution (100% Complete)**
+- **Tool Registry**: Auto-discovery and management system (`tools/__init__.py`)
+- **Base Tool Class**: Abstract tool interface with metadata and execution (`tools/base_tool.py`)
+- **ReadTool**: File reading with line-based navigation and cat -n formatting (`tools/read_tool.py`)
+- **OpenAI Function Calling**: Full support for tool schemas and execution
+- **Conversation Integration**: Tool calls and results properly ordered in message flow
+- **Tool Commands**: `/tools` to list, `/toggle-tools` to enable/disable
+
 ### 🚧 PLANNED FEATURES
 
 **Phase 2: Repository Integration (Next Priority)**
@@ -28,10 +36,6 @@ This is a minimalist Python implementation of Claude Code that demonstrates core
 - File content integration into conversation context
 - Code structure understanding and relevance filtering
 
-**Phase 3: Tool Execution**
-- Tool registry and execution framework
-- Code manipulation and file operations
-- Git integration and version control
 
 **Phase 4: Advanced Features**
 - Sub-agent architecture for parallel processing
@@ -64,7 +68,12 @@ models.py (LLM API Integration)
 ├── Kimi K2 integration via OpenAI SDK
 ├── Context format conversion (unified → OpenAI messages)
 ├── API error handling with graceful fallback
-└── Future support for repo/tool context types
+└── Tool result ordering and validation
+
+tools/ (Tool System)
+├── __init__.py - Tool registry with auto-discovery
+├── base_tool.py - Abstract Tool class with metadata
+└── read_tool.py - File reading tool with line navigation
 ```
 
 ### Unified Context Format
@@ -107,13 +116,18 @@ models.py (LLM API Integration)
 }
 ```
 
-*Tool Context (Future)*:
+*Tool Context (Implemented)*:
 ```python
 {
     "type": "tool",
     "role": "tool", 
-    "content": "File created successfully: new_feature.py",
-    "metadata": {"tool_name": "file_create", "execution_time": 0.5, "success": true}
+    "content": "File content here...",
+    "metadata": {
+        "tool_name": "read_file",
+        "tool_call_id": "call_abc123",
+        "execution_time": 0.5,
+        "success": true
+    }
 }
 ```
 
@@ -146,9 +160,9 @@ models.py (LLM API Integration)
 
 ### Current Limitations
 - **Repository Context**: Not yet implemented (Phase 2)
-- **Tool Execution**: Framework not yet available (Phase 3)
-- **File Operations**: No code modification capabilities yet
+- **File Operations**: Limited to reading, no modification capabilities yet
 - **Sub-Agents**: Planned for Phase 4
+- **Git Integration**: Not yet available
 
 ### Key Design Decisions
 - **Unified Context Format**: Enables seamless integration of different context types
@@ -160,6 +174,7 @@ models.py (LLM API Integration)
 - **Unit Tests**: Core functionality with mocked dependencies
 - **Integration Tests**: End-to-end workflow validation
 - **Context Tests**: Unified format handling and filtering
+- **Tool Tests**: Registry, execution, and OpenAI format (test_tools.py, test_fixes.py)
 - **Simplified Coverage**: Essential tests only, avoiding over-testing
 
 ## Future Development Roadmap
@@ -170,11 +185,11 @@ models.py (LLM API Integration)
 3. **File Integration**: Add file content to unified context format
 4. **Smart Context**: Include only relevant code based on user queries
 
-### Medium Term (Phase 3)
-1. **Tool Registry**: Framework for registering and executing tools
-2. **File Operations**: Create, read, update, delete file capabilities
-3. **Code Execution**: Safe execution of code snippets and commands
-4. **Git Integration**: Version control operations and diff management
+### Medium Term (Next Enhancements)
+1. **File Operations**: Create, update, delete file capabilities (read already implemented)
+2. **Code Execution**: Safe execution of code snippets and commands
+3. **Git Integration**: Version control operations and diff management
+4. **Additional Tools**: Write, Edit, Search, and Execute tools
 
 ### Long Term (Phase 4) 
 1. **Sub-Agent Architecture**: Parallel task execution with process isolation
@@ -196,3 +211,4 @@ When working with this codebase:
 6. **Preserve the mock fallback capability** for all external dependencies
 
 The codebase is designed for extensibility while maintaining simplicity. Any new features should follow the established patterns and architectural decisions.
+- Never run pip install command, leave it to the user.

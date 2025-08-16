@@ -53,17 +53,19 @@ class Agent:
             "verbose": False
         }
     
-    def generate_response(self, message: str, context: List[Dict[str, str]] = None) -> str:
+    def generate_response(self, message: str, context: List[Dict[str, str]] = None, tool_schemas: List[Dict[str, Any]] = None) -> Any:
         """
         Generate a response to the user message using real LLM or fallback to mock.
         
         Args:
             message: User input message
             context: Optional conversation context
+            tool_schemas: Optional tool schemas for function calling
             
         Returns:
-            Generated response string
+            Generated response (string or dict with tool_calls)
         """
+
 
         if self.config.get("verbose", False):
             print(f"[Agent] Processing message: {message[:50]}...")
@@ -71,35 +73,137 @@ class Agent:
         # Use real model if available
         if self.use_real_model and self.model_client:
             try:
-                return self.model_client.generate_response(message, context)
+                return self.model_client.generate_response(message, context, tool_schemas)
             except Exception as e:
                 print(f"[Agent] Model API failed, falling back to mock: {e}")
                 # Fall through to mock response
         
         # Fallback mock responses (when no API key or API fails)
+        return self._generate_mock_response(message, tool_schemas)
+    
+    def _generate_mock_response(self, message: str, tool_schemas: List[Dict[str, Any]] = None) -> Any:
+        """Generate mock responses with potential tool usage."""
+        if self.config.get("verbose", False):
+            print(f"\n[Agent] Mock Response Generation:")
+            print(f"  Input message: {message[:100]}{'...' if len(message) > 100 else ''}")
+            print(f"  Available tools: {len(tool_schemas) if tool_schemas else 0}")
+            if tool_schemas:
+                tool_names = [schema["function"]["name"] for schema in tool_schemas]
+                print(f"  Tool names: {tool_names}")
+        
         time.sleep(0.1)  # Simulate API delay
         
         message_lower = message.lower()
         
+        # Check if tools are available and message suggests tool usage
+        if tool_schemas and self._should_use_tools_mock(message_lower):
+            if self.config.get("verbose", False):
+                print(f"  Decision: Generate tool response")
+            return self._generate_mock_tool_response(message, tool_schemas)
+        
+        # Regular text responses
+        if self.config.get("verbose", False):
+            print(f"  Decision: Generate text response")
+        
         if "hello" in message_lower or "hi" in message_lower:
-            return "Hello! I'm a Claude Code mini assistant. How can I help you today?"
+            response = "Hello! I'm a Claude Code mini assistant. How can I help you today?"
         elif "how are you" in message_lower:
-            return "I'm doing well, thank you for asking! I'm ready to assist you with any questions or tasks."
+            response = "I'm doing well, thank you for asking! I'm ready to assist you with any questions or tasks."
         elif "what" in message_lower and ("can you do" in message_lower or "are you" in message_lower):
-            return "I'm a simple chatbot implementation. Currently, I can have conversations with you. In the future, I'll be enhanced with more capabilities!"
+            tools_info = ""
+            if tool_schemas:
+                tool_names = [schema["function"]["name"] for schema in tool_schemas]
+                tools_info = f" I have access to these tools: {', '.join(tool_names)}."
+            response = f"I'm a simple chatbot implementation. Currently, I can have conversations with you.{tools_info} In the future, I'll be enhanced with more capabilities!"
         elif "bye" in message_lower or "goodbye" in message_lower:
-            return "Goodbye! It was nice chatting with you. Use /exit to end our conversation."
+            response = "Goodbye! It was nice chatting with you. Use /exit to end our conversation."
         elif "help" in message_lower:
-            return "I'm here to help! You can ask me questions, have a conversation, or type /exit to quit."
+            response = "I'm here to help! You can ask me questions, have a conversation, or type /exit to quit."
         else:
             # Generate a contextual response based on message length and content
             word_count = len(message.split())
             if word_count > 20:
-                return f"That's quite a detailed message! I understand you're saying something about '{message.split()[0]}'. Could you tell me more?"
+                response = f"That's quite a detailed message! I understand you're saying something about '{message.split()[0]}'. Could you tell me more?"
             elif word_count > 5:
-                return f"Interesting point about '{message.split()[-1]}'. I'd like to hear your thoughts on this topic."
+                response = f"Interesting point about '{message.split()[-1]}'. I'd like to hear your thoughts on this topic."
             else:
-                return f"I see you mentioned '{message}'. That's an interesting topic. What would you like to know more about?"
+                response = f"I see you mentioned '{message}'. That's an interesting topic. What would you like to know more about?"
+        
+        if self.config.get("verbose", False):
+            print(f"  Generated response: {response[:100]}{'...' if len(response) > 100 else ''}")
+            print()
+        
+        return {"content": response}
+    
+    def _should_use_tools_mock(self, message_lower: str) -> bool:
+        """Determine if mock response should include tool usage."""
+        tool_triggers = [
+            "read", "file", "open", "show me", "what's in", "content of",
+            "look at", "examine", "check", "view", "display"
+        ]
+        return any(trigger in message_lower for trigger in tool_triggers)
+    
+    def _generate_mock_tool_response(self, message: str, tool_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Generate mock response with tool calls."""
+        message_lower = message.lower()
+        
+        if self.config.get("verbose", False):
+            print(f"  Generating mock tool response for: {message_lower[:50]}...")
+        
+        # Find appropriate tool for mock usage
+        read_tool = None
+        for schema in tool_schemas:
+            if schema["function"]["name"] == "read_file":
+                read_tool = schema
+                break
+        
+        if read_tool and ("read" in message_lower or "file" in message_lower):
+            # Generate mock tool call for file reading
+            import re
+            
+            if self.config.get("verbose", False):
+                print(f"  Detected file reading request, generating read_file tool call")
+            
+            # Try to extract filename from message
+            file_patterns = [
+                r'["\']([\w\./\-_]+\.[\w]+)["\']',  # "filename.ext"
+                r'\b([\w\-_]+\.py)\b',  # python files
+                r'\b([\w\-_]+\.txt)\b',  # text files
+                r'\b([\w\-_]+\.md)\b',   # markdown files
+            ]
+            
+            filename = None
+            for pattern in file_patterns:
+                match = re.search(pattern, message)
+                if match:
+                    filename = match.group(1)
+                    break
+            
+            if not filename:
+                filename = "README.md"  # Default fallback
+            
+            if self.config.get("verbose", False):
+                print(f"  Extracted filename: {filename}")
+                print()
+            
+            return {
+                "content": f"I'll read the {filename} file for you.",
+                "tool_calls": [{
+                    "id": "mock_call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "read_file",
+                        "arguments": {"file_path": filename}
+                    }
+                }]
+            }
+        
+        # Fallback to regular response
+        if self.config.get("verbose", False):
+            print(f"  No specific tool pattern matched, using fallback response")
+            print()
+        
+        return {"content": "I'd like to help you with that. Let me use the available tools to assist you."}
     
     def get_model_info(self) -> Dict[str, Any]:
         """Return information about the current model configuration."""
