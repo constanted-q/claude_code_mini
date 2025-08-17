@@ -87,7 +87,6 @@ class KimiModelClient:
                     print(f"  Available tools: {[t['function']['name'] for t in tool_schemas]}")
                 print()
 
-            print(f"###debug: api_params {api_params} in models 90")
             # Make API call
             response = self.client.chat.completions.create(**api_params)
             
@@ -189,7 +188,6 @@ class KimiModelClient:
             "content": system_content
         })
 
-        print(f"###debug: context {context} in models 191")
         
         # Add context messages if available
         if context:

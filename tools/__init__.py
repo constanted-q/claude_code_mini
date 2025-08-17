@@ -14,6 +14,7 @@ class ToolRegistry:
     def __init__(self):
         self._tools: Dict[str, Type[Tool]] = {}
         self._instances: Dict[str, Tool] = {}
+        self.auto_registered = False
     
     def register_tool(self, tool_class: Type[Tool]):
         """Register a tool class in the registry."""
@@ -76,13 +77,15 @@ class ToolRegistry:
                         if (isinstance(attr, type) and 
                             issubclass(attr, Tool) and 
                             attr != Tool and
-                            not attr.__name__.startswith('Base')):
+                            not attr.__name__.startswith('Base') and
+                            not attr.__name__.startswith('Agent')):
                             
                             self.register_tool(attr)
                             print(f"[ToolRegistry] Auto-registered tool: {attr.get_name()}")
                             
                 except Exception as e:
                     print(f"[ToolRegistry] Failed to load tool from {modname}: {e}")
+        self.auto_registered = True
 
 
 # Global tool registry instance

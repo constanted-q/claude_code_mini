@@ -212,3 +212,4 @@ When working with this codebase:
 
 The codebase is designed for extensibility while maintaining simplicity. Any new features should follow the established patterns and architectural decisions.
 - Never run pip install command, leave it to the user.
+- Don't write tests or execute tests unless the user asked explicitly.

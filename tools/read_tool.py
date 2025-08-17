@@ -59,11 +59,12 @@ class ReadTool(Tool):
             "required": ["file_path"]
         }
     
-    def execute(self, **kwargs) -> ToolExecutionResult:
+    def execute(self, tool_context=None, **kwargs) -> ToolExecutionResult:
         """
         Execute the file reading operation.
         
         Args:
+            tool_context: ToolContext for caching file state
             file_path: Path to the file to read
             offset: Starting line number (1-based, default: 1)
             limit: Maximum lines to read (default: 2000)
@@ -170,6 +171,12 @@ class ReadTool(Tool):
                 lines_read = 0
                 truncated = False
             
+            # Cache file content in tool context if provided and not binary
+            if tool_context is not None and encoding != "binary":
+                # Create clean content without line numbers for caching
+                clean_content = self._extract_clean_content(content)
+                tool_context.cache_file_state(str(path), clean_content, encoding)
+            
             # Prepare metadata
             metadata = {
                 "file_path": str(path),
@@ -273,6 +280,37 @@ class ReadTool(Tool):
             
         except Exception:
             return False
+    
+    def _extract_clean_content(self, formatted_content: str) -> str:
+        """
+        Extract clean content by removing line numbers from cat -n formatted output.
+        
+        Args:
+            formatted_content: Content with line numbers (format: "123\tcontent")
+            
+        Returns:
+            Clean content without line numbers
+        """
+        lines = formatted_content.split('\n')
+        clean_lines = []
+        
+        for line in lines:
+            # Skip empty lines and truncation notices
+            if not line.strip() or line.startswith('...'):
+                continue
+            
+            # Remove line number prefix (format: number + tab)
+            if '\t' in line:
+                # Split at first tab to remove line number
+                parts = line.split('\t', 1)
+                if len(parts) > 1 and parts[0].isdigit():
+                    clean_lines.append(parts[1])
+                else:
+                    clean_lines.append(line)
+            else:
+                clean_lines.append(line)
+        
+        return '\n'.join(clean_lines)
     
     def post_process(self, result: ToolExecutionResult) -> ToolExecutionResult:
         """

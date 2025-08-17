@@ -4,10 +4,68 @@ Session class for handling CLI I/O, preprocessing, postprocessing, and context m
 
 import json
 import shlex
+import os
+import glob
 from typing import List, Dict, Any, Optional
 import time
 from datetime import datetime
-from tools import auto_discover_tools, get_registry, get_tool
+from tools import auto_discover_tools, get_registry, get_tool, register_tool
+
+
+class ToolContext:
+    """Context for managing tool state and cached file information."""
+    
+    def __init__(self):
+        """Initialize empty tool context."""
+        self.read_file_state: Dict[str, Dict[str, Any]] = {}
+    
+    def cache_file_state(self, file_path: str, content: str, encoding: str = 'utf-8'):
+        """
+        Cache file state after reading.
+        
+        Args:
+            file_path: Path to the file
+            content: File content (without line numbers)
+            encoding: File encoding used
+        """
+        try:
+            # Get file stats for timestamp
+            stat_info = os.stat(file_path)
+            
+            self.read_file_state[file_path] = {
+                "content": content,
+                "timestamp": stat_info.st_mtime,
+                "encoding": encoding,
+                "size": stat_info.st_size
+            }
+        except OSError:
+            # If we can't stat the file, store without timestamp
+            self.read_file_state[file_path] = {
+                "content": content,
+                "timestamp": None,
+                "encoding": encoding,
+                "size": len(content.encode(encoding))
+            }
+    
+    def get_cached_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """
+        Get cached file state.
+        
+        Args:
+            file_path: Path to the file
+            
+        Returns:
+            Cached file info or None if not cached
+        """
+        return self.read_file_state.get(file_path)
+    
+    def is_file_cached(self, file_path: str) -> bool:
+        """Check if file has been cached (read)."""
+        return file_path in self.read_file_state
+    
+    def clear_cache(self):
+        """Clear all cached file states."""
+        self.read_file_state.clear()
 
 
 class Session:
@@ -25,7 +83,10 @@ class Session:
         self.session_start_time = datetime.now()
         self.message_count = 0
         self.tools_enabled = True
+        self.tool_context = ToolContext()
+        self.sub_agents: Dict[str, Any] = {}  # Track active sub-agents
         self._initialize_tools()
+        self._initialize_sub_agents()
         
     def start_session(self):
         """Start the interactive chat session."""
@@ -87,6 +148,47 @@ class Session:
             print(f"[Session] Warning: Failed to initialize tools: {e}")
             self.tools_enabled = False
     
+    def _initialize_sub_agents(self):
+        """Initialize and register sub-agents from config files."""
+        try:
+            # Create sub_agents directory if it doesn't exist
+            sub_agents_dir = "sub_agents"
+            os.makedirs(sub_agents_dir, exist_ok=True)
+            
+            # Load existing sub-agent configs
+            config_files = glob.glob(os.path.join(sub_agents_dir, "*.yml"))
+            
+            for config_file in config_files:
+                try:
+                    from tools.agent_tool import create_agent_tool_from_config
+                    
+                    agent_tool = create_agent_tool_from_config(config_file, self.tool_context)
+                    if agent_tool:
+                        # Register the agent tool instance directly
+                        registry = get_registry()
+                        registry._tools[agent_tool.get_name()] = type(agent_tool)
+                        registry._instances[agent_tool.get_name()] = agent_tool
+                        
+                        # Track the sub-agent
+                        sub_agent_name = agent_tool.sub_agent.name
+                        self.sub_agents[sub_agent_name] = {
+                            "config_path": config_file,
+                            "agent_tool": agent_tool,
+                            "sub_agent": agent_tool.sub_agent
+                        }
+                        
+                        if self.verbose:
+                            print(f"[Session] Loaded sub-agent: {sub_agent_name}")
+                            
+                except Exception as e:
+                    print(f"[Session] Warning: Failed to load sub-agent from {config_file}: {e}")
+                    
+            if self.verbose and self.sub_agents:
+                print(f"[Session] Loaded {len(self.sub_agents)} sub-agents: {', '.join(self.sub_agents.keys())}")
+                
+        except Exception as e:
+            print(f"[Session] Warning: Failed to initialize sub-agents: {e}")
+    
     def _handle_special_commands(self, command: str):
         """Handle special commands like /toolcall, /tools, etc."""
         parts = command.split(None, 1)
@@ -98,6 +200,8 @@ class Session:
             self.tools_enabled = not self.tools_enabled
             status = "enabled" if self.tools_enabled else "disabled"
             self._print_message(f"Tools {status}", "system")
+        elif cmd == "/agent":
+            self._handle_agent_commands(command)
         elif cmd == "/help":
             self._show_help()
         else:
@@ -127,6 +231,9 @@ class Session:
 • /exit - Quit the session
 • /tools - List all available tools
 • /toggle-tools - Enable/disable tool use
+• /agent - List all sub-agents
+• /agent -new <description> - Create new sub-agent
+• /agent -delete <name> - Delete sub-agent
 • /help - Show this help message
 
 Tool Usage:
@@ -134,6 +241,112 @@ When tools are enabled, the AI assistant can automatically use tools to help ans
 You can also call tools directly using /toolcall command.
         """
         self._print_message(help_text, "system")
+    
+    def _handle_agent_commands(self, command: str):
+        """Handle /agent commands for sub-agent management."""
+        parts = command.split()
+        
+        if len(parts) == 1:
+            # /agent - list all sub-agents
+            self._list_sub_agents()
+        elif len(parts) >= 3 and parts[1] == "-new":
+            # /agent -new <description> - create new sub-agent
+            description = " ".join(parts[2:])
+            self._create_new_sub_agent(description)
+        elif len(parts) == 3 and parts[1] == "-delete":
+            # /agent -delete <name> - delete sub-agent
+            agent_name = parts[2]
+            self._delete_sub_agent(agent_name)
+        else:
+            self._print_message("Usage: /agent [-new <description>] [-delete <name>]", "system")
+    
+    def _list_sub_agents(self):
+        """List all available sub-agents."""
+        if not self.sub_agents:
+            self._print_message("No sub-agents available. Use '/agent -new <description>' to create one.", "system")
+            return
+        
+        message = f"Available Sub-Agents ({len(self.sub_agents)}):\n"
+        for name, info in self.sub_agents.items():
+            sub_agent = info["sub_agent"]
+            message += f"\n• {name}: {sub_agent.description}\n"
+            message += f"  Tools: {', '.join(sub_agent.available_tools)}\n"
+            message += f"  Instructions: {sub_agent.instructions}\n"
+        
+        self._print_message(message, "system")
+    
+    def _create_new_sub_agent(self, description: str):
+        """Create a new sub-agent from description."""
+        if not description.strip():
+            self._print_message("Please provide a description for the sub-agent.", "error")
+            return
+        
+        try:
+            from sub_agent import create_sub_agent
+            
+            self._print_message(f"Creating sub-agent for: {description}", "system")
+            
+            result = create_sub_agent(description, save_config=True)
+            
+            if result.get("success", False):
+                sub_agent = result["sub_agent"]
+                agent_tool = result["agent_tool"]
+                
+                # Register the agent tool instance directly
+                registry = get_registry()
+                registry._tools[agent_tool.get_name()] = type(agent_tool)
+                registry._instances[agent_tool.get_name()] = agent_tool
+                
+                # Track the sub-agent
+                self.sub_agents[sub_agent.name] = {
+                    "config_path": result["config_path"],
+                    "agent_tool": agent_tool,
+                    "sub_agent": sub_agent
+                }
+                
+                self._print_message(
+                    f"✅ Created sub-agent '{sub_agent.name}' successfully!\n"
+                    f"Description: {sub_agent.description}\n"
+                    f"Available tools: {', '.join(sub_agent.available_tools)}\n"
+                    f"Config saved to: {result['config_path']}",
+                    "system"
+                )
+            else:
+                error_msg = result.get("error", "Unknown error")
+                self._print_message(f"❌ Failed to create sub-agent: {error_msg}", "error")
+                
+        except Exception as e:
+            self._print_message(f"❌ Error creating sub-agent: {str(e)}", "error")
+    
+    def _delete_sub_agent(self, agent_name: str):
+        """Delete a sub-agent."""
+        if agent_name not in self.sub_agents:
+            self._print_message(f"Sub-agent '{agent_name}' not found.", "error")
+            return
+        
+        try:
+            # Get config path
+            config_path = self.sub_agents[agent_name]["config_path"]
+            
+            # Remove from registry (best effort)
+            try:
+                agent_tool = self.sub_agents[agent_name]["agent_tool"]
+                tool_name = agent_tool.get_name()
+                # Note: ToolRegistry doesn't have unregister method, so we just remove from our tracking
+            except:
+                pass
+            
+            # Remove config file
+            if os.path.exists(config_path):
+                os.remove(config_path)
+            
+            # Remove from tracking
+            del self.sub_agents[agent_name]
+            
+            self._print_message(f"✅ Deleted sub-agent '{agent_name}' successfully.", "system")
+            
+        except Exception as e:
+            self._print_message(f"❌ Error deleting sub-agent: {str(e)}", "error")
     
     def _process_agent_response(self, response_data: Dict[str, Any], user_input: str) -> str:
         """Process agent response, handling tool calls if present."""
@@ -177,7 +390,7 @@ You can also call tools directly using /toolcall command.
             try:
                 # Get and execute tool
                 tool = get_tool(tool_name)
-                result = tool.safe_execute(**tool_args)
+                result = tool.safe_execute(tool_context=self.tool_context, **tool_args)
                 
                 # Show tool execution result
                 if result.success:
@@ -187,7 +400,6 @@ You can also call tools directly using /toolcall command.
                 
                 # Add to context and results
                 tool_context = tool.to_unified_context(result, call_id)
-                print(f"###debug: tool_context {tool_context} in session 243")
                 self.context_history.append(tool_context)
                 tool_results.append(tool_context)
                 
@@ -297,44 +509,42 @@ You can also call tools directly using /toolcall command.
             agent_response: Agent's response
             tool_calls: Optional tool calls made by the agent
         """
-        if not user_input:  # Skip if no user input (e.g., follow-up responses)
-            return
-            
+        new_messages = []
         timestamp = datetime.now().isoformat()
         message_id = len(self.context_history) + 1
-        
-        # Add user message in unified format
-        user_context = {
-            "type": "conversation",
-            "role": "user",
-            "content": user_input,
-            "metadata": {
-                "timestamp": timestamp,
-                "message_id": f"{message_id}_user"
+        if user_input:
+            # Add user message in unified format
+            user_context = {
+                "type": "conversation",
+                "role": "user",
+                "content": user_input,
+                "metadata": {
+                    "timestamp": timestamp,
+                    "message_id": f"{message_id}_user"
+                }
             }
-        }
-        
-        # Add assistant message in unified format
-        assistant_context = {
-            "type": "conversation", 
-            "role": "assistant",
-            "content": agent_response,
-            "metadata": {
-                "timestamp": timestamp,
-                "message_id": f"{message_id}_assistant"
+            new_messages.append(user_context)
+        if agent_response:
+            # Add assistant message in unified format
+            assistant_context = {
+                "type": "conversation",
+                "role": "assistant",
+                "content": agent_response,
+                "metadata": {
+                    "timestamp": timestamp,
+                    "message_id": f"{message_id}_assistant"
+                }
             }
-        }
-        
-        # Add tool calls to metadata if present
-        if tool_calls:
-            assistant_context["metadata"]["tool_calls"] = tool_calls
-        
+            # Add tool calls to metadata if present
+            if tool_calls:
+                assistant_context["metadata"]["tool_calls"] = tool_calls
+            new_messages.append(assistant_context)
         # Add both messages to context history
-        self.context_history.extend([user_context, assistant_context])
+        self.context_history.extend(new_messages)
         
         # Keep only last 30 entries to prevent context overflow (increased for tool contexts)
-        if len(self.context_history) > 30:
-            self.context_history = self.context_history[-30:]
+        if len(self.context_history) > 100:
+            self.context_history = self.context_history[-100:]
         
         if self.verbose:
             print(f"[Session] Context updated. History length: {len(self.context_history)}")

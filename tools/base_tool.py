@@ -119,11 +119,12 @@ class Tool(ABC):
         # Default implementation - can be overridden by subclasses
         return result
     
-    def safe_execute(self, **kwargs) -> ToolExecutionResult:
+    def safe_execute(self, tool_context=None, **kwargs) -> ToolExecutionResult:
         """
         Safely execute the tool with error handling.
         
         Args:
+            tool_context: Optional ToolContext for maintaining state
             **kwargs: Tool parameters
             
         Returns:
@@ -133,8 +134,11 @@ class Tool(ABC):
             # Validate input
             self.validate_input(**kwargs)
             
-            # Execute tool
-            result = self.execute(**kwargs)
+            # Execute tool - pass context if the tool supports it
+            if tool_context is not None:
+                result = self.execute(tool_context=tool_context, **kwargs)
+            else:
+                result = self.execute(**kwargs)
             
             # Post-process result
             processed_result = self.post_process(result)
