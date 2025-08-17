@@ -4,10 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a minimalist Python implementation of Claude Code that demonstrates core AI assistant functionality. It's a weekend project implementing Claude Code's essential features by strategically borrowing patterns from Aider and Goose:
-
-**From Aider**: CLI design, repository context gathering, patch engine, coder abstractions
-**From Goose**: Agent loop, tool execution system, sub-agent architecture, conversation management
+This is a minimalist Python implementation of Claude Code that demonstrates core AI assistant functionality. It's a weekend project implementing Claude Code's essential features with multi-agent orchestration and advanced tool execution capabilities.
 
 ## Current Implementation Status
 
@@ -21,26 +18,32 @@ This is a minimalist Python implementation of Claude Code that demonstrates core
 - **Context Management**: Unified context format supporting future extensions
 - **Testing**: Comprehensive test suite with 15 core tests
 
-**Phase 3: Tool Execution (100% Complete)**
+**Phase 2: Advanced Tool System (100% Complete)**
 - **Tool Registry**: Auto-discovery and management system (`tools/__init__.py`)
 - **Base Tool Class**: Abstract tool interface with metadata and execution (`tools/base_tool.py`)
 - **ReadTool**: File reading with line-based navigation and cat -n formatting (`tools/read_tool.py`)
+- **EditTool**: File editing with diff preview and user confirmation (`tools/edit_tool.py`)
+- **GrepTool**: Pattern searching across files with regex support (`tools/grep_tool.py`)
+- **GlobTool**: File pattern matching for discovery (`tools/glob_tool.py`)
+- **AgentTool**: Sub-agent orchestration and task delegation (`tools/agent_tool.py`)
 - **OpenAI Function Calling**: Full support for tool schemas and execution
 - **Conversation Integration**: Tool calls and results properly ordered in message flow
 - **Tool Commands**: `/tools` to list, `/toggle-tools` to enable/disable
 
+**Phase 3: Sub-Agent Architecture (100% Complete)**
+- **Dynamic Agent Creation**: `/agent -new` command for specialized sub-agent generation
+- **Agent Configuration**: YAML-based agent configs with tool assignment (`sub_agents/`)
+- **Task Delegation**: Multi-agent coordination via AgentTool
+- **Specialized Agents**: Domain-specific agents (file-finder, lyric-writer, etc.)
+- **Complex Workflows**: Multi-agent orchestration demonstrated in Write Lyric demo
+
 ### 🚧 PLANNED FEATURES
 
-**Phase 2: Repository Integration (Next Priority)**
-- Repository context gathering and code analysis
-- File content integration into conversation context
-- Code structure understanding and relevance filtering
-
-
 **Phase 4: Advanced Features**
-- Sub-agent architecture for parallel processing
 - File patching with unified diffs
+- Git integration and version control
 - Web interface
+- Advanced context intelligence
 
 ## Technical Architecture
 
@@ -70,10 +73,20 @@ models.py (LLM API Integration)
 ├── API error handling with graceful fallback
 └── Tool result ordering and validation
 
+sub_agent.py (Sub-Agent Management)
+├── Dynamic agent creation and configuration
+├── Agent-to-agent communication
+├── Task delegation and coordination
+└── YAML-based agent persistence
+
 tools/ (Tool System)
 ├── __init__.py - Tool registry with auto-discovery
 ├── base_tool.py - Abstract Tool class with metadata
-└── read_tool.py - File reading tool with line navigation
+├── read_tool.py - File reading tool with line navigation
+├── edit_tool.py - File editing with diff preview
+├── grep_tool.py - Pattern searching across files
+├── glob_tool.py - File pattern matching
+└── agent_tool.py - Sub-agent orchestration
 ```
 
 ### Unified Context Format
@@ -159,10 +172,10 @@ tools/ (Tool System)
 ## Implementation Notes
 
 ### Current Limitations
-- **Repository Context**: Not yet implemented (Phase 2)
-- **File Operations**: Limited to reading, no modification capabilities yet
-- **Sub-Agents**: Planned for Phase 4
 - **Git Integration**: Not yet available
+- **File Patching**: Unified diff system not implemented
+- **Web Interface**: CLI-only interaction currently
+- **Advanced Context**: Repository intelligence not implemented
 
 ### Key Design Decisions
 - **Unified Context Format**: Enables seamless integration of different context types
@@ -175,27 +188,29 @@ tools/ (Tool System)
 - **Integration Tests**: End-to-end workflow validation
 - **Context Tests**: Unified format handling and filtering
 - **Tool Tests**: Registry, execution, and OpenAI format (test_tools.py, test_fixes.py)
+- **Multi-Agent Tests**: Sub-agent creation and coordination
+- **Demo Validation**: Write Lyric demo showcases full system capabilities
 - **Simplified Coverage**: Essential tests only, avoiding over-testing
 
 ## Future Development Roadmap
 
-### Immediate Next Steps (Phase 2)
-1. **Repository Scanner**: Analyze codebase structure and identify relevant files
-2. **Context Relevance**: Score and filter repository content for inclusion
-3. **File Integration**: Add file content to unified context format
-4. **Smart Context**: Include only relevant code based on user queries
+### Immediate Next Steps (Phase 4)
+1. **File Patching**: Unified diff-based code modifications
+2. **Git Integration**: Version control operations and diff management  
+3. **Code Execution**: Safe execution of code snippets and commands
+4. **Web Interface**: Browser-based interaction alternative to CLI
 
-### Medium Term (Next Enhancements)
-1. **File Operations**: Create, update, delete file capabilities (read already implemented)
-2. **Code Execution**: Safe execution of code snippets and commands
-3. **Git Integration**: Version control operations and diff management
-4. **Additional Tools**: Write, Edit, Search, and Execute tools
+### Medium Term (Advanced Features)
+1. **Repository Intelligence**: Smart codebase understanding and context
+2. **Advanced Context**: Semantic code understanding and intelligent filtering
+3. **Process Isolation**: Enhanced sub-agent security and performance
+4. **Workflow Templates**: Pre-built multi-agent workflows for common tasks
 
-### Long Term (Phase 4) 
-1. **Sub-Agent Architecture**: Parallel task execution with process isolation
-2. **Advanced Patching**: Unified diff-based code modifications
-3. **Web Interface**: Browser-based interaction alternative to CLI
-4. **Advanced Context**: Semantic code understanding and intelligent filtering
+### Long Term (Vision)
+1. **Multi-Repository**: Cross-project context and operations
+2. **Cloud Integration**: Remote execution and collaboration
+3. **Plugin System**: Third-party tool and agent extensions
+4. **Visual Interface**: Graph-based workflow visualization
 
 ---
 

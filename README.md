@@ -1,6 +1,6 @@
 # Claude Code Mini
 
-A minimalist Python implementation of Claude Code's core functionality, strategically borrowing from the best of Aider and Goose open-source projects.
+A minimalist Python implementation of Claude Code's core functionality demonstrating AI assistant capabilities with multi-agent orchestration.
 
 ## ✅ Current Features
 
@@ -15,6 +15,9 @@ A minimalist Python implementation of Claude Code's core functionality, strategi
 - Tool registry with automatic discovery
 - OpenAI function calling format support
 - ReadTool for file reading with line-based navigation
+- EditTool for file modifications with diff preview
+- GrepTool for pattern searching across files
+- GlobTool for file pattern matching
 - Tool execution in conversation flow with proper ordering
 - Commands: `/tools` (list tools), `/toggle-tools` (enable/disable)
 
@@ -24,6 +27,13 @@ A minimalist Python implementation of Claude Code's core functionality, strategi
 - Context filtering by type (conversation, repo, tool, system)
 - Automatic context truncation to prevent token overflow
 
+**Sub-Agent System:**
+- Dynamic sub-agent creation with specialized capabilities
+- Multi-agent orchestration for complex tasks
+- Agent-to-agent communication and task delegation
+- Automatic tool assignment based on agent specialization
+- Commands: `/agent -new` (create specialized sub-agents)
+
 ## 🏗️ Architecture
 
 ```
@@ -32,6 +42,8 @@ CLI (claude_code_mini.py)
 Session (session.py) - I/O, preprocessing, context management
     ↓  
 Agent (agent.py) - Response generation, model selection
+    ↓
+Sub-Agents (sub_agent.py) - Specialized task execution
     ↓
 Models (models.py) - LLM API integration (Kimi K2)
     ↓
@@ -43,7 +55,8 @@ Tools (tools/) - Tool registry and execution
 - **Session**: Handles user I/O, input preprocessing, response postprocessing, and unified context management
 - **Agent**: Orchestrates response generation, manages model clients, and handles API fallbacks
 - **Models**: OpenAI SDK-based integration with Kimi K2 model via Moonshot API
-- **Tools**: Registry system with auto-discovery, base Tool class, and ReadTool implementation
+- **Tools**: Registry system with auto-discovery, base Tool class, ReadTool, EditTool, GrepTool, GlobTool, and AgentTool implementations
+- **Sub-Agents**: Dynamic agent creation, task specialization, and multi-agent orchestration via AgentTool
 - **Unified Context**: Extensible format supporting conversation, repository, and tool contexts
 
 ## 🚀 Quick Start
@@ -85,6 +98,17 @@ python claude_code_mini.py --verbose
 python claude_code_mini.py --config my_config.yml
 ```
 
+## 🎵 Demo: Multi-Agent Orchestration
+
+See **[Demo: Write Lyric](demo_write_lyric.md)** for a complete demonstration of claude-mini-cli's multi-agent-multi-tool orchestration capabilities. The demo showcases:
+
+- **Automatic sub-agent generation** with specialized roles
+- **Complex task coordination** between multiple agents  
+- **Tool orchestration** across file operations and content creation
+- **Real-world workflow** from file discovery to content generation
+
+The demo walks through creating specialized agents (file-finder and lyric-writer) and coordinating them to complete a complex creative task involving file search, content analysis, and original content creation.
+
 ### Example Session
 
 ```
@@ -122,29 +146,14 @@ Tools available: read_file
    • Context entries: 8
 ```
 
-## 🧪 Testing
-
-Run the test suite:
-
-```bash
-# All tests
-python -m pytest tests/ -v
-
-# Specific components
-python -m pytest tests/test_models.py -v
-python -m pytest tests/test_agent.py -v
-python -m pytest tests/test_session.py -v
-```
-
 ## 🎯 Project Goals
 
 This weekend project implements Claude Code's essential features:
 
 1. ✅ **CLI Interface** - Command-line interaction with comprehensive options
-2. 🚧 **Repository Context Gathering** - Smart codebase understanding 
-3. ✅ **Agent Loop with Tool Execution** - Conversational AI with action capabilities
-4. 🚧 **Sub-Agents** - Process-isolated parallel task execution
-5. 🚧 **File Patching** - Unified diff-based code modifications
+2. ✅ **Agent Loop with Tool Execution** - Conversational AI with action capabilities
+3. ✅ **Sub-Agents** - Multi-agent orchestration with specialized task execution
+4. ✅ **Advanced Tool System** - File operations, search, and editing capabilities
 
 **Legend**: ✅ Complete | 🚧 Planned | ❌ Not Started
 
@@ -159,25 +168,24 @@ This weekend project implements Claude Code's essential features:
 - [x] Unified context format for future extensibility
 - [x] Comprehensive test coverage
 
-### Phase 2: Repository Integration 🚧 NEXT
-- [ ] Repository context gathering and analysis
-- [ ] File content integration into context
-- [ ] Code structure understanding
-- [ ] Relevance-based context filtering
+### Phase 2: Advanced Tool System ✅ COMPLETE  
+- [x] EditTool for file modifications with diff preview
+- [x] GrepTool for pattern searching across files
+- [x] GlobTool for file pattern matching
+- [x] AgentTool for sub-agent orchestration
+- [x] Multi-agent coordination and task delegation
 
-### Phase 3: Tool Execution ✅ COMPLETE
-- [x] Tool registry and management with auto-discovery
-- [x] Base Tool class with metadata and execution
-- [x] ReadTool for file reading with line-based navigation
-- [x] OpenAI function calling format support
-- [x] Tool execution in conversation flow
-- [ ] Git integration (future enhancement)
+### Phase 3: Sub-Agent Architecture ✅ COMPLETE
+- [x] Dynamic sub-agent creation with `/agent -new` command
+- [x] Specialized agent configuration and tool assignment
+- [x] Multi-agent task coordination and delegation
+- [x] Agent-to-agent communication via AgentTool
+- [x] Complex workflow orchestration (demonstrated in Write Lyric demo)
 
 ### Phase 4: Advanced Features 🚧 FUTURE
-- [ ] Sub-agent architecture
-- [ ] Parallel task execution
-- [ ] File patching with unified diffs
+- [ ] Git integration and version control
 - [ ] Web interface
+- [ ] Advanced context intelligence
 
 ## 🛠️ Dependencies
 
@@ -196,4 +204,4 @@ Open source - feel free to use and modify.
 
 ---
 
-**Inspired by**: [Aider](https://github.com/paul-gauthier/aider) (CLI design, repo context) | [Goose](https://github.com/square/goose) (agent architecture, conversation management)
+**Inspired by**: Modern AI assistant architecture patterns for conversational interfaces and tool orchestration.
